@@ -1,0 +1,7 @@
+build/
+deps/build
+compile_flags.txt
+
+*.a
+*.o
+*.so
