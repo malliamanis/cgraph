@@ -1,6 +1,6 @@
 #include "cgraph.h"
 
-#define SCALE 4
+#define SCALE 1
 #define WIDTH (1280 / SCALE)
 #define HEIGHT (WIDTH * 9 / 16)
 
