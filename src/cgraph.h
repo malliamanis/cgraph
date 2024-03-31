@@ -19,7 +19,7 @@ typedef double f64;
 
 typedef size_t usize;
 
-void cgraph_run(ui32 width, ui32 height, ui32 scale);
+void cgraph_run(ui32 width, ui32 height, ui32 pixel_width);
 
 #endif
 
