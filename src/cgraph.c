@@ -11,12 +11,15 @@
 #define TITLE "cgraph"
 
 #define WHITE 0xFFFFFFFF
-#define BLUE 0xFF000077
+#define BLUE  0xFF000077
+#define GREEN 0xFF007700
 #define BLACK 0
 
-#define DEFAULT_SCALE_X 50
-#define DEFAULT_SCALE_Y 50
-#define DEFAULT_DETAIL 2000
+#define DEFAULT_SCALE_X 25
+#define DEFAULT_SCALE_Y 25
+#define DEFAULT_DETAIL 5000
+
+#define ZOOM_FACTOR 1.1
 
 typedef f64 (*func)(f64);
 
@@ -52,7 +55,12 @@ static State s = {0};
 
 static f64 f(f64 x)
 {
-	return x*exp(sin(x));
+	return 1/sin(x);
+}
+
+static f64 lin(f64 x)
+{
+	return 1/cos(x);
 }
 
 static void plot(ui32 graph_index);
@@ -96,8 +104,12 @@ void cgraph_run(ui32 width, ui32 height, ui32 pixel_width)
 	s.pixels = calloc(s.size, sizeof *s.pixels);
 	s.redraw = true;
 
-	s.graphs_amount = 1;
-	s.graphs = (Graph[]){{calloc(s.size, sizeof *(s.graphs[0].data)), BLUE, f}};
+	s.graphs_amount = 2;
+	s.graphs = 
+		(Graph[]) {
+			{ calloc(s.size, sizeof *(s.graphs[0].data)), BLUE,  f },
+			{ calloc(s.size, sizeof *(s.graphs[0].data)), GREEN, lin }
+		};
 
 	s.replot_all = true;
 
@@ -122,16 +134,16 @@ void cgraph_run(ui32 width, ui32 height, ui32 pixel_width)
 							s.quit = true;
 							break;
 						case SDL_SCANCODE_UP:
-							s.graph_scale_x *= 1.1;
-							s.graph_scale_y *= 1.1;
-							s.detail *= 1.1;
+							s.graph_scale_x *= ZOOM_FACTOR;
+							s.graph_scale_y *= ZOOM_FACTOR;
+							s.detail *= ZOOM_FACTOR;
 
 							s.replot_all = true;
 							break;
 						case SDL_SCANCODE_DOWN:
-							s.graph_scale_x *= 0.9;
-							s.graph_scale_y *= 0.9;
-							s.detail *= 0.9;
+							s.graph_scale_x *= 1 / ZOOM_FACTOR;
+							s.graph_scale_y *= 1 / ZOOM_FACTOR;
+							s.detail *= 1 / ZOOM_FACTOR;
 							
 							s.replot_all = true;
 							break;
@@ -153,10 +165,6 @@ void cgraph_run(ui32 width, ui32 height, ui32 pixel_width)
 		// render
 
 		if (s.redraw) {
-			s.redraw = false;
-
-			// memset(s.pixels, 0, s.size * (sizeof *s.pixels));
-
 			for (ui32 x = 0; x < width; ++x) {
 				for (ui32 y = 0; y < height; ++y) {
 					if (x == s.width_half - 1/* || y == height_half - 1*/)
@@ -192,6 +200,8 @@ void cgraph_run(ui32 width, ui32 height, ui32 pixel_width)
 			}
 
 			SDL_UpdateTexture(s.screen, NULL, s.pixels, width * (sizeof *s.pixels));
+
+			s.redraw = false;
 		}
 
 		SDL_RenderCopyEx(s.renderer, s.screen, NULL, NULL, 0.0, NULL, SDL_FLIP_VERTICAL);
@@ -224,8 +234,9 @@ static void plot(ui32 graph_index)
 	func function = s.graphs[graph_index].function;
 
 	const f64 x_increment = 1.0 / s.detail;
+	const f64 width_half_scaled = s.width_half / s.graph_scale_x;
 
-	for (f64 x = -(s.width_half - 1); x < s.width_half; x += x_increment) {
+	for (f64 x = -width_half_scaled; x < width_half_scaled; x += x_increment) {
 		y = function(x);
 
 		if (isnan(y))
@@ -234,7 +245,7 @@ static void plot(ui32 graph_index)
 		x_scaled = x * s.graph_scale_x;
 		y_scaled = y * s.graph_scale_y;
 
-		if (y_scaled >= s.height_half || y_scaled <= -s.height_half || x_scaled >= s.width_half || x_scaled <= -s.width_half)
+		if (y_scaled >= s.height_half || y_scaled <= -s.height_half)
 			continue;
 
 		data[(i32)(x_scaled + s.width_half - 1) + (i32)(y_scaled + s.height_half - 1) * s.width] = true;
