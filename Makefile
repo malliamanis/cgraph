@@ -18,14 +18,17 @@ LDFLAGS = -lSDL2 -lm
 
 rwildcard = $(foreach d, $(wildcard $1*), $(call rwildcard, $d/, $2) $(filter $(subst *, %, $2), $d))
 
-OBJ_DEB_DIR = build/debug/obj
-OBJ_REL_DIR = build/release/obj
+DEB_DIR = build/debug
+REL_DIR = build/release
+
+OBJ_DEB_DIR = $(DEB_DIR)/obj
+OBJ_REL_DIR = $(REL_DIR)/obj
 SRC         = $(call rwildcard, src, *.c)
 OBJ_DEB     = $(patsubst src/%.c, $(OBJ_DEB_DIR)/%.o.d, $(SRC))
 OBJ_REL     = $(patsubst src/%.c, $(OBJ_REL_DIR)/%.o,   $(SRC))
 
-EXE_REL = build/release/cgraph
-EXE_DEB = build/debug/cgraph
+EXE_DEB = $(DEB_DIR)/cgraph
+EXE_REL = $(REL_DIR)/cgraph
 
 .PHONY: debug release run clean deps depsclean
 

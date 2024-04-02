@@ -1,69 +1,74 @@
 #include <SDL2/SDL.h>
 
+#include <SDL2/SDL_events.h>
+#include <SDL2/SDL_video.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 
+#include "graph.h"
 #include "cgraph.h"
 
 #define TITLE "cgraph"
 
-#define WHITE 0xFFFFFFFF
-#define BLUE  0xFF000077
-#define GREEN 0xFF007700
-#define BLACK 0
+#define WHITE  0xFFFFFFFF
+#define BLACK  0
+#define RED    0xFF770000
+#define GREEN  0xFF007700
+#define BLUE   0xFF000077
+#define PURPLE 0xFF770077
 
-#define DEFAULT_SCALE_X 25
-#define DEFAULT_SCALE_Y 25
-#define DEFAULT_DETAIL 5000
+#define DEFAULT_SCALE_X 100
+#define DEFAULT_SCALE_Y 100
+#define DEFAULT_DETAIL 10000
 
-#define ZOOM_FACTOR 1.1
-
-typedef f64 (*func)(f64);
-
-typedef struct {
-	bool *data;
-	ui32 color;
-
-	func function;
-} Graph;
+#define ZOOM_FACTOR 1.05
 
 typedef struct {
 	bool quit;
-	ui32 width, height;
-	f64 width_half, height_half;
-	ui32 size;
+	ui32 width, height, size;
 
 	SDL_Window *window;
 	SDL_Renderer *renderer;
 	SDL_Texture *screen;
 
 	ui32 *pixels;
-	bool redraw;
+
+	SessionInfo info;
 
 	Graph *graphs;
 	ui32 graphs_amount;
 	bool replot_all;
-
-	double graph_scale_x, graph_scale_y;
-	double detail;
 } State;
 
 static State s = {0};
 
+static f64 factorial(f64 x)
+{
+	return tgamma(x + 1);
+}
+
 static f64 f(f64 x)
 {
-	return 1/sin(x);
+	return sin(1/x);
 }
 
-static f64 lin(f64 x)
+static f64 g(f64 x)
 {
-	return 1/cos(x);
+	return NAN;
 }
 
-static void plot(ui32 graph_index);
+static f64 h(f64 x)
+{
+	return NAN;
+}
+
+static f64 t(f64 x)
+{
+	return NAN;
+}
 
 void cgraph_run(ui32 width, ui32 height, ui32 pixel_width)
 {
@@ -72,9 +77,6 @@ void cgraph_run(ui32 width, ui32 height, ui32 pixel_width)
 	s.width = width;
 	s.height = height;
 	s.size = width * height;
-
-	s.width_half = width / 2.0;
-	s.height_half = height / 2.0;
 
 	s.quit = false;
 
@@ -87,7 +89,8 @@ void cgraph_run(ui32 width, ui32 height, ui32 pixel_width)
 			SDL_WINDOWPOS_CENTERED_DISPLAY(0),
 			width * pixel_width,
 			height * pixel_width,
-			SDL_WINDOW_ALLOW_HIGHDPI);
+			SDL_WINDOW_ALLOW_HIGHDPI
+		);
 
 	s.renderer = SDL_CreateRenderer(s.window, -1, SDL_RENDERER_PRESENTVSYNC);
 	// SDL_RenderSetScale(renderer, pixel_width, pixel_width);
@@ -98,82 +101,93 @@ void cgraph_run(ui32 width, ui32 height, ui32 pixel_width)
 			SDL_PIXELFORMAT_ARGB8888,
 			SDL_TEXTUREACCESS_STREAMING,
 			width,
-			height);
-
+			height
+		);
 
 	s.pixels = calloc(s.size, sizeof *s.pixels);
-	s.redraw = true;
 
-	s.graphs_amount = 2;
-	s.graphs = 
+	s.info = (SessionInfo) {
+		.width = width,
+		.height = height,
+		.size_half = { width / 2.0, height / 2.0 },
+		.graph_detail = DEFAULT_DETAIL,
+		.graph_scale = { DEFAULT_SCALE_X, DEFAULT_SCALE_Y },
+		.graph_offset = { 0.0, 0.0 },
+		.redraw = true
+	};
+
+	s.graphs_amount = 4;
+	s.graphs =
 		(Graph[]) {
-			{ calloc(s.size, sizeof *(s.graphs[0].data)), BLUE,  f },
-			{ calloc(s.size, sizeof *(s.graphs[0].data)), GREEN, lin }
+			graph_create(&s.info, f, BLUE),
+			graph_create(&s.info, g, GREEN),
+			graph_create(&s.info, h, RED),
+			graph_create(&s.info, t, PURPLE)
 		};
-
 	s.replot_all = true;
 
-	// one unit is 1/graph_scale pixels wide
-	s.graph_scale_x = DEFAULT_SCALE_X;
-	s.graph_scale_y = DEFAULT_SCALE_Y;
+	ui64 ticks = 60;
+	ui64 delta_time = 1000 / ticks;
 
-	s.detail = DEFAULT_DETAIL; // values in between pixels are calculated for increased detail
-
+	ui64 current_time = SDL_GetTicks64();
+	ui64 new_time;
+	ui64 accumulator = 0;
 
 	while (!s.quit) {
 		// update
 
-		SDL_Event event;
-		while(SDL_PollEvent(&event)) {
-			switch(event.type) {
-				case SDL_QUIT:
-					s.quit = true;
-				case SDL_KEYDOWN:
-					switch(event.key.keysym.scancode) {
-						case SDL_SCANCODE_ESCAPE:
-							s.quit = true;
-							break;
-						case SDL_SCANCODE_UP:
-							s.graph_scale_x *= ZOOM_FACTOR;
-							s.graph_scale_y *= ZOOM_FACTOR;
-							s.detail *= ZOOM_FACTOR;
+		SDL_PumpEvents();
 
-							s.replot_all = true;
-							break;
-						case SDL_SCANCODE_DOWN:
-							s.graph_scale_x *= 1 / ZOOM_FACTOR;
-							s.graph_scale_y *= 1 / ZOOM_FACTOR;
-							s.detail *= 1 / ZOOM_FACTOR;
-							
-							s.replot_all = true;
-							break;
+		const ui8 *keys = SDL_GetKeyboardState(NULL);
+		if (keys[SDL_SCANCODE_ESCAPE])
+			s.quit = true;
+		if (keys[SDL_SCANCODE_UP]) {
+			s.info.graph_scale.x *= ZOOM_FACTOR;
+			s.info.graph_scale.y *= ZOOM_FACTOR;
+			s.info.graph_detail  *= ZOOM_FACTOR;
 
-						default:
-							break;
-					}
-					break;
-			}
+			s.replot_all = true;
+		}
+		if (keys[SDL_SCANCODE_DOWN]) {
+			s.info.graph_scale.x /= ZOOM_FACTOR;
+			s.info.graph_scale.y /= ZOOM_FACTOR;
+			s.info.graph_detail  /= ZOOM_FACTOR;
+
+			s.replot_all = true;
 		}
 
-		if (s.replot_all) {
-			for (int i = 0; i < s.graphs_amount; ++i)
-				plot(i);
+		new_time = SDL_GetTicks64();
 
-			s.replot_all = false;
+		accumulator += new_time - current_time;
+		current_time = new_time;
+
+		while (accumulator >= delta_time) {
+			accumulator -= delta_time;
+			
+			// tick
+			if (s.replot_all) {
+				for (int i = 0; i < s.graphs_amount; ++i)
+					graph_plot(&s.graphs[i]);
+
+				s.replot_all = false;
+			}
 		}
 
 		// render
 
-		if (s.redraw) {
-			for (ui32 x = 0; x < width; ++x) {
-				for (ui32 y = 0; y < height; ++y) {
-					if (x == s.width_half - 1/* || y == height_half - 1*/)
-						s.pixels[x + (ui32)(s.height_half - 1) * width] = BLACK;
-					else
-						s.pixels[x + y * width] = WHITE;
+		if (s.info.redraw) {
+			memset(s.pixels, WHITE, s.size * (sizeof *s.pixels));
+
+			for (ui32 i = 0; i < width; ++i) {
+				if (i < height) {
+					// vertical axis
+					s.pixels[(ui32)(s.info.size_half.x - 1) + i * width] = BLACK;
+					s.pixels[(ui32)(s.info.size_half.x) + i * width] = BLACK;
 				}
 
-				s.pixels[x + (ui32)(s.height_half - 1) * width] = BLACK;
+				// horizontal axis
+				s.pixels[i + (ui32)(s.info.size_half.y - 1) * width] = BLACK;
+				s.pixels[i + (ui32)(s.info.size_half.y) * width] = BLACK;
 			}
 
 			for (ui32 i = 0; i < s.graphs_amount; ++i) {
@@ -185,6 +199,7 @@ void cgraph_run(ui32 width, ui32 height, ui32 pixel_width)
 						if (data[x + y * width]) {
 							s.pixels[x + y * width] = color;
 
+							// make it thicker
 							if (x < width - 1)
 								s.pixels[x + 1 + y * width] = color;
 							if (x > 0)
@@ -201,7 +216,7 @@ void cgraph_run(ui32 width, ui32 height, ui32 pixel_width)
 
 			SDL_UpdateTexture(s.screen, NULL, s.pixels, width * (sizeof *s.pixels));
 
-			s.redraw = false;
+			s.info.redraw = false;
 		}
 
 		SDL_RenderCopyEx(s.renderer, s.screen, NULL, NULL, 0.0, NULL, SDL_FLIP_VERTICAL);
@@ -220,36 +235,4 @@ void cgraph_run(ui32 width, ui32 height, ui32 pixel_width)
 	SDL_DestroyRenderer(s.renderer);
 
 	SDL_Quit();
-}
-
-static void plot(ui32 graph_index)
-{
-	f64 y;
-	f64 x_scaled;
-	f64 y_scaled;
-
-	bool *data = s.graphs[graph_index].data;
-	memset(data, 0, s.size * (sizeof *data));
-
-	func function = s.graphs[graph_index].function;
-
-	const f64 x_increment = 1.0 / s.detail;
-	const f64 width_half_scaled = s.width_half / s.graph_scale_x;
-
-	for (f64 x = -width_half_scaled; x < width_half_scaled; x += x_increment) {
-		y = function(x);
-
-		if (isnan(y))
-			continue;
-
-		x_scaled = x * s.graph_scale_x;
-		y_scaled = y * s.graph_scale_y;
-
-		if (y_scaled >= s.height_half || y_scaled <= -s.height_half)
-			continue;
-
-		data[(i32)(x_scaled + s.width_half - 1) + (i32)(y_scaled + s.height_half - 1) * s.width] = true;
-	}
-
-	s.redraw = true;
 }

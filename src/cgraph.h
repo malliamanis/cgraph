@@ -1,25 +1,19 @@
 #ifndef CGRAPH_H
 #define CGRAPH_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include "types.h"
 
-typedef int8_t   i8;
-typedef int16_t  i16;
-typedef int32_t  i32;
-typedef int64_t  i64;
+typedef struct {
+	ui32 width, height;
+	vec2 size_half;
 
-typedef uint8_t  ui8;
-typedef uint16_t ui16;
-typedef uint32_t ui32;
-typedef uint64_t ui64;
+	f64 graph_detail; // values in between pixels are calculated for increased detail
+	vec2 graph_scale; // one unit is 1/graph_scale pixels wide
+	vec2 graph_offset;
 
-typedef float f32;
-typedef double f64;
-
-typedef size_t usize;
+	bool redraw;
+} SessionInfo;
 
 void cgraph_run(ui32 width, ui32 height, ui32 pixel_width);
 
 #endif
-
