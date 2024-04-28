@@ -1,24 +1,26 @@
 #ifndef GRAPH_H
 #define GRAPH_H
 
-#include "types.h"
+#include <stddef.h>
+#include <stdbool.h>
+
 #include "cgraph.h"
 
-typedef f64 (*func)(f64);
+typedef double (*func)(double);
 
 typedef struct {
-	SessionInfo *info;
+	const SessionInfo *info;
 
 	bool *data;
-	usize data_size;
+	size_t data_size;
 
 	func function;
 
-	ui32 color;
+	uint32_t color;
 	bool visible;
 } Graph;
 
-Graph graph_create(SessionInfo *info, func function, ui32 color);
+Graph graph_create(const SessionInfo *info, func function, uint32_t color);
 
 void graph_plot(Graph *graph);
 
