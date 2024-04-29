@@ -11,4 +11,6 @@ $ ./build/release/cgraph
 ```
 
 ## How to use
-Press UP to zoom in and DOWN to zoom out
+Use scroll wheel to control zoom or press UP to zoom in and DOWN to zoom out <br>
+Click and drag to move the origin of the plane
+Press space to go back to the origin and set the zoom to default

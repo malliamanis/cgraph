@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 
+#include <SDL2/SDL_events.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +13,7 @@
 
 #define BLACK  0
 #define WHITE  0xFFFFFFFF
-#define RED    0xFF770000
+#define RED    0xFFFF0000
 #define GREEN  0xFF007700
 #define BLUE   0xFF000077
 #define PURPLE 0xFF770077
@@ -23,7 +24,7 @@
 #define DEFAULT_OFFSET_X 0
 #define DEFAULT_OFFSET_Y 0
 
-#define DEFAULT_ZOOM_FACTOR 1.025
+#define DEFAULT_ZOOM_FACTOR 1.1
 
 static double f(double x)
 {
@@ -32,17 +33,17 @@ static double f(double x)
 
 static double g(double x)
 {
-	return NAN;
+	return sin(x);
 }
 
 static double h(double x)
 {
-	return NAN;
+	return exp(x);
 }
 
 static double t(double x)
 {
-	return NAN;
+	return tgamma(x);
 }
 
 void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
@@ -97,7 +98,7 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 
 	bool mouse_left_down = false;
 	int32_t mouse_diff_x, mouse_diff_y;
-
+	int32_t mouse_scroll_amount;
 
 	uint64_t ticks = 60;
 	uint64_t delta_time = 1000 / ticks;
@@ -109,24 +110,32 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 	while (!quit) {
 		/* UPDATE */
 
+		mouse_scroll_amount = 0;
+
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
-			if (event.type == SDL_QUIT)
-				quit = true;
+			switch (event.type) {
+				case SDL_QUIT:
+					quit = true;
+					break;
+				case SDL_MOUSEWHEEL:
+					mouse_scroll_amount = event.wheel.y;
+					break;
+			}
 		}
 
 		const uint8_t *keys = SDL_GetKeyboardState(NULL);
 		if (keys[SDL_SCANCODE_ESCAPE])
 			quit = true;
 
-		if (keys[SDL_SCANCODE_UP]) {
+		if (keys[SDL_SCANCODE_UP] || mouse_scroll_amount > 0) {
 			info.graph_scale.x *= DEFAULT_ZOOM_FACTOR;
 			info.graph_scale.y *= DEFAULT_ZOOM_FACTOR;
 			info.graph_detail  *= DEFAULT_ZOOM_FACTOR;
 
 			replot_all = true;
 		}
-		if (keys[SDL_SCANCODE_DOWN]) {
+		if (keys[SDL_SCANCODE_DOWN] || mouse_scroll_amount < 0) {
 			info.graph_scale.x /= DEFAULT_ZOOM_FACTOR;
 			info.graph_scale.y /= DEFAULT_ZOOM_FACTOR;
 			info.graph_detail  /= DEFAULT_ZOOM_FACTOR;
@@ -134,10 +143,18 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 			replot_all = true;
 		}
 
+		if (keys[SDL_SCANCODE_SPACE]) {
+			info.graph_detail = DEFAULT_DETAIL;
+			info.graph_scale  = (vec2) { DEFAULT_SCALE_X,  DEFAULT_SCALE_Y };
+			info.graph_offset = (vec2) { DEFAULT_OFFSET_Y, DEFAULT_OFFSET_Y };
+
+			replot_all = true;
+		}
+
 		if (SDL_GetRelativeMouseState(&mouse_diff_x, &mouse_diff_y) & SDL_BUTTON_LMASK) {
 			if (mouse_left_down) {
-				info.graph_offset.x += mouse_diff_x;
-				info.graph_offset.y += mouse_diff_y;
+				info.graph_offset.x += (double)mouse_diff_x / pixel_width;
+				info.graph_offset.y += (double)mouse_diff_y / pixel_width;
 
 				replot_all = true;
 			}

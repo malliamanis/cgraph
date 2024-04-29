@@ -21,39 +21,30 @@ Graph graph_create(const SessionInfo *info, func function, uint32_t color)
 void graph_plot(Graph *g)
 {
 	bool *data = g->data;
-	memset(data, 0, g->data_size);
+	memset(data, 0, g->data_size * sizeof(*data));
 
-	uint32_t width     = g->info->width;
-	vec2     size_half = g->info->size_half;
-	double   detail    = g->info->graph_detail;
-	vec2     scale     = g->info->graph_scale;
-	vec2     offset    = g->info->graph_offset;
-
+	SessionInfo info = *g->info;
 	func function = g->function;
 
-	const double x_increment = 1.0 / detail;
-	const vec2 size_transformed = {
-		size_half.x / scale.x,
-		size_half.y
-	};
+	const double x_increment       = 1.0 / info.graph_detail;
+	const double width_half_scaled = info.size_half.x / info.graph_scale.x;
+	const double offset_x_scaled   = info.graph_offset.x / info.graph_scale.x;
 
-	double y;
-	double x_scaled;
-	double y_scaled;
+	double y, x_scaled, y_scaled;
 
-	for (double x = -size_transformed.x; x < size_transformed.x; x += x_increment) {
-		y = function(x);
+	for (double x = -width_half_scaled + 1.0 / info.size_half.x; x < width_half_scaled; x += x_increment) {
+		y = function(x - offset_x_scaled);
 
 		if (isnan(y) || isinf(y))
 			continue;
 
-		x_scaled = x * scale.x;
-		y_scaled = y * scale.y;
+		x_scaled = x * info.graph_scale.x;
+		y_scaled = y * info.graph_scale.y - info.graph_offset.y;
 
-		if (y_scaled >= size_transformed.y || y_scaled <= -size_transformed.y)
+		if (y_scaled >= info.size_half.y || y_scaled <= -info.size_half.y)
 			continue;
 
-		data[(int64_t)(x_scaled + size_half.x - 1) + (int64_t)(y_scaled + size_half.y - 1) * width] = true;
+		data[(int64_t)(x_scaled + info.size_half.x - 1) + (int64_t)(y_scaled + info.size_half.y - 1) * info.width] = true;
 	}
 }
 
