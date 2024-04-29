@@ -33,17 +33,17 @@ static double f(double x)
 
 static double g(double x)
 {
-	return sin(x);
+	return NAN;
 }
 
 static double h(double x)
 {
-	return exp(x);
+	return NAN;
 }
 
 static double t(double x)
 {
-	return tgamma(x);
+	return NAN;
 }
 
 void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
