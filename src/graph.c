@@ -31,7 +31,7 @@ void graph_plot(Graph *g)
 
 	double y, x_scaled, y_scaled;
 
-	for (double x = -width_half_scaled + 1.0 / info.size_half.x; x < width_half_scaled; x += x_increment) {
+	for (double x = -width_half_scaled; x < width_half_scaled; x += x_increment) {
 		y = function(x - offset_x_scaled);
 
 		if (isnan(y) || isinf(y))
@@ -43,7 +43,7 @@ void graph_plot(Graph *g)
 		if (y_scaled >= info.size_half.y || y_scaled <= -info.size_half.y)
 			continue;
 
-		data[(int64_t)(x_scaled + info.size_half.x - 1) + (int64_t)(y_scaled + info.size_half.y - 1) * info.width] = true;
+		data[(int64_t)(x_scaled + info.size_half.x) + (int64_t)(y_scaled + info.size_half.y) * info.width] = true;
 	}
 }
 

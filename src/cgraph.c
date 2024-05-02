@@ -28,7 +28,7 @@
 
 static double f(double x)
 {
-	return x * exp(sin(x));
+	return x*x;
 }
 
 static double g(double x)
@@ -86,7 +86,6 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 	);
 
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
-	// SDL_RenderSetScale(renderer, pixel_width, pixel_width);
 
 	SDL_Texture *screen = SDL_CreateTexture(
 		renderer,
@@ -192,14 +191,14 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 			for (uint32_t i = 0; i < width; ++i) {
 				// vertical axis
 				if (i < height && width_half_transformed > 1 && width_half_transformed < (int32_t)info.width) {
+					pixels[(width_half_transformed)     + i * width] = BLACK;
 					pixels[(width_half_transformed - 1) + i * width] = BLACK;
-					pixels[(width_half_transformed - 2) + i * width] = BLACK;
 				}
 
 				// horizontal axis
 				if (height_half_transformed > 1 && height_half_transformed < (int32_t)info.height) {
+					pixels[i + (height_half_transformed)     * width] = BLACK;
 					pixels[i + (height_half_transformed - 1) * width] = BLACK;
-					pixels[i + (height_half_transformed - 2) * width] = BLACK;
 				}
 			}
 
