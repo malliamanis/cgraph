@@ -28,7 +28,7 @@
 
 static double f(double x)
 {
-	return x*x;
+	return x*exp(sin(x));
 }
 
 static double g(double x)
