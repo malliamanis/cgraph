@@ -1,6 +1,8 @@
 #include <SDL2/SDL.h>
 
 #include <SDL2/SDL_events.h>
+#include <SDL2/SDL_mouse.h>
+#include <SDL2/SDL_timer.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +11,7 @@
 #include "graph.h"
 #include "cgraph.h"
 
-#define TITLE "cgraph"
+#define TITLE "CGraph"
 
 #define BLACK  0
 #define WHITE  0xFFFFFFFF
@@ -28,7 +30,7 @@
 
 static double f(double x)
 {
-	return x*exp(sin(x));
+	return x*x*sin(x);
 }
 
 static double g(double x)
@@ -46,11 +48,15 @@ static double t(double x)
 	return NAN;
 }
 
-void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
+static void zoom(SessionInfo *info, double zoom_factor);
+
+void cgraph_run(uint32_t window_width, uint32_t window_height, uint32_t pixel_width)
 {
 	/* INIT */
 
-	size_t size = width * height;
+	const uint32_t width  = window_width  / pixel_width;
+	const uint32_t height = window_height / pixel_width;
+
 	bool quit = false;
 
 	SessionInfo info = (SessionInfo) {
@@ -80,8 +86,8 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 		TITLE,
 		SDL_WINDOWPOS_CENTERED_DISPLAY(0),
 		SDL_WINDOWPOS_CENTERED_DISPLAY(0),
-		width * pixel_width,
-		height * pixel_width,
+		window_width,
+		window_height,
 		SDL_WINDOW_ALLOW_HIGHDPI
 	);
 
@@ -99,12 +105,13 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 	int32_t mouse_diff_x, mouse_diff_y;
 	int32_t mouse_scroll_amount;
 
-	uint64_t ticks = 60;
-	uint64_t delta_time = 1000 / ticks;
 
-	uint64_t current_time = SDL_GetTicks64();
-	uint64_t new_time;
-	uint64_t accumulator = 0;
+	uint32_t ticks = 60;
+	double time_step_scaled = (1.0 / ticks) * SDL_GetPerformanceFrequency();
+
+	double current_time = SDL_GetPerformanceCounter();
+	double new_time;
+	double accumulator = 0;
 
 	while (!quit) {
 		/* UPDATE */
@@ -128,17 +135,11 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 			quit = true;
 
 		if (keys[SDL_SCANCODE_UP] || mouse_scroll_amount > 0) {
-			info.graph_scale.x *= DEFAULT_ZOOM_FACTOR;
-			info.graph_scale.y *= DEFAULT_ZOOM_FACTOR;
-			info.graph_detail  *= DEFAULT_ZOOM_FACTOR;
-
+			zoom(&info, DEFAULT_ZOOM_FACTOR);
 			replot_all = true;
 		}
 		if (keys[SDL_SCANCODE_DOWN] || mouse_scroll_amount < 0) {
-			info.graph_scale.x /= DEFAULT_ZOOM_FACTOR;
-			info.graph_scale.y /= DEFAULT_ZOOM_FACTOR;
-			info.graph_detail  /= DEFAULT_ZOOM_FACTOR;
-
+			zoom(&info, 1.0 / DEFAULT_ZOOM_FACTOR);
 			replot_all = true;
 		}
 
@@ -163,13 +164,14 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 		else
 			mouse_left_down = false;
 
-		new_time = SDL_GetTicks64();
+
+		new_time = SDL_GetPerformanceCounter();
 
 		accumulator += new_time - current_time;
 		current_time = new_time;
 
-		while (accumulator >= delta_time) {
-			accumulator -= delta_time;
+		while (accumulator >= time_step_scaled) {
+			accumulator -= time_step_scaled;
 			
 			/* TICK */
 			if (replot_all) {
@@ -184,7 +186,7 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 		/* RENDER */
 
 		if (redraw) {
-			memset(pixels, WHITE, size * sizeof(*pixels));
+			memset(pixels, 0xFF, width * height * sizeof(*pixels));
 
 			int32_t width_half_transformed  = info.size_half.x + info.graph_offset.x;
 			int32_t height_half_transformed = info.size_half.y - info.graph_offset.y;
@@ -211,7 +213,7 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 						if (data[x + y * width]) {
 							pixels[x + y * width] = color;
 
-							// make it thicker
+							// make graph thicker
 							if (x < width - 1)
 								pixels[x + 1 + y * width] = color;
 							if (x > 0)
@@ -244,8 +246,19 @@ void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width)
 	free(pixels);
 
 	SDL_DestroyTexture(screen);
-	SDL_DestroyWindow(window);
 	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
 
 	SDL_Quit();
+}
+
+static void zoom(SessionInfo *info, double zoom_factor)
+{
+	info->graph_offset.x = info->graph_offset.x * zoom_factor;
+	info->graph_offset.y = info->graph_offset.y * zoom_factor;
+
+	info->graph_scale.x *= zoom_factor;
+	info->graph_scale.y *= zoom_factor;
+
+	info->graph_detail  *= zoom_factor;
 }

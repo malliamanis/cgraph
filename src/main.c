@@ -4,8 +4,8 @@
 #include "cgraph.h"
 
 #define PIXEL_WIDTH 1
-#define WIDTH 1280
-#define HEIGHT (WIDTH * 9 / 16)
+#define WIDTH       1280
+#define HEIGHT     (WIDTH * 9 / 16)
 
 int main(int argc, char **argv)
 {
@@ -22,7 +22,7 @@ int main(int argc, char **argv)
 		pixel_width = atoi(argv[3]);
 	}
 
-	cgraph_run(width / pixel_width, height / pixel_width, pixel_width);
+	cgraph_run(width, height, pixel_width);
 
 	return 0;
 }

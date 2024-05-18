@@ -15,6 +15,6 @@ typedef struct {
 	vec2 graph_offset;
 } SessionInfo;
 
-void cgraph_run(uint32_t width, uint32_t height, uint32_t pixel_width);
+void cgraph_run(uint32_t window_width, uint32_t window_height, uint32_t pixel_width);
 
 #endif
